@@ -193,7 +193,3 @@ Tips:
   see the real detection tiles.
 
 ---
-
-## License
-
-MIT. See `LICENSE`.
