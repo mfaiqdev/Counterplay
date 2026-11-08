@@ -112,7 +112,7 @@ counterplay/
 │
 ├── tests/test_environment.py   Unit tests for the rules
 ├── assets/                  Window icon
-├── requirements.txt  .gitignore  LICENSE  README.md
+├── requirements.txt  .gitignore  README.md
 ```
 
 ### The most important design rule
