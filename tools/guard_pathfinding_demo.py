@@ -7,16 +7,21 @@ Run from the project folder:
     python tools/guard_pathfinding_demo.py                         normal game, BFS guards
     python tools/guard_pathfinding_demo.py --scenario              the "hide behind a wall" test
     python tools/guard_pathfinding_demo.py --scenario --original   the same test, built-in guards
+    python tools/guard_pathfinding_demo.py --scenario --algorithm astar
+                                       choose the search: bfs, dfs, greedy or astar
 
 What is different from the normal game (python main.py)?
 --------------------------------------------------------
     built-in guards   A chasing guard only steps to a neighbouring tile that
                       is closer to its target.  When a wall is in the way, no
                       neighbour is closer, so the guard gets stuck.
-    BFS guards        A chasing guard asks BFS for the shortest path to its
-                      target and takes the first step, so it walks AROUND walls
-                      through the doorways.  The planned path is drawn on the
-                      map as orange dots.
+    search guards     A chasing guard asks our search (BFS by default) for a
+                      path to its target and takes the first step, so it walks
+                      AROUND walls through the doorways.  The planned path is
+                      drawn on the map as orange dots.
+
+Try DFS to SEE why it is a poor choice for chasing: its paths are valid but
+long and wandering, and they change every time the guard replans.
 
 The --scenario test
 -------------------
@@ -24,7 +29,7 @@ Every mission starts with the thief hiding in the start room at (7, 12) and
 the hallway guard at (10, 8), already chasing the thief.  A wall is between
 them.  Press SPACE once to start, then just watch:
     * built-in guard: walks left, gets stuck against the wall at (7, 8)
-    * BFS guard:      walks around through the doorways and catches you
+    * BFS / A* guard: walks around through the doorways and catches you
 In this test both kinds of guard are made more patient (they give up after
 80 ticks instead of 10) so there is time to watch them try.
 
@@ -47,13 +52,13 @@ sys.path.insert(0, PROJECT_ROOT)
 
 import pygame
 
-from algorithms import bfs
+from algorithms import BY_KEY
 from environment import security
 from environment.game import Game
 from environment.security import Guard, MODE_CHASE
 from gui.renderer import Renderer, get_font, draw_text, TILE_SIZE
 
-SEARCH = bfs                                # the algorithm the guards will use
+SEARCH = BY_KEY["bfs"]                      # the algorithm the guards will use
 
 SCENARIO_THIEF = (7, 12)                    # hiding in the start room
 SCENARIO_GUARD = (10, 8)                    # in the hallway, wall in between
@@ -133,8 +138,10 @@ def add_label_to(original_draw, text):
 # ---------------------------------------------------------------------------
 # Start the game with the swaps in place
 # ---------------------------------------------------------------------------
-def install(scenario=False, original=False):
+def install(scenario=False, original=False, algorithm="bfs"):
     """Swap in the demo behaviour.  Returns the label shown on screen."""
+    global SEARCH
+    SEARCH = BY_KEY[algorithm]
     if original:
         label = "Guards: built-in 'step closer' rule"
     else:
@@ -157,8 +164,11 @@ def main():
                         help="start every mission in the 'hide behind a wall' test")
     parser.add_argument("--original", action="store_true",
                         help="keep the built-in guards (to compare)")
+    parser.add_argument("--algorithm", choices=sorted(BY_KEY), default="bfs",
+                        help="which search the guards use (default: bfs)")
     options = parser.parse_args()
-    label = install(scenario=options.scenario, original=options.original)
+    label = install(scenario=options.scenario, original=options.original,
+                    algorithm=options.algorithm)
 
     import main as game                     # the normal game, started as usual
     original_create_window = game.create_window
