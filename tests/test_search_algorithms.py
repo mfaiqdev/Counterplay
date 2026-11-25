@@ -1,99 +1,41 @@
 """
-Tests for the search algorithms in algorithms/ (BFS for now; DFS, Greedy and
-A* join this file as they are written).
+Tests for Breadth-First Search (algorithms/bfs.py).
+
+DFS, Greedy and A* have their own test files (test_dfs.py, test_greedy.py,
+test_astar.py).  Shared tools such as the tiny map, the oracles and
+assertValidPath() live in search_helpers.py.
 
 Run from the project folder with:
     python -m unittest discover -s tests -v
 
-How we know a search is correct
--------------------------------
-1. Hand-checked cases on a tiny map (drawn below), plus edge cases: start
-   equals goal, goal inside a wall, goal behind the locked door.
-2. Every returned path is checked step by step: it starts at the start, ends
-   at the goal, only moves between neighbouring walkable tiles, and never
-   visits a tile twice.
+How we know BFS is correct
+--------------------------
+1. Hand-checked cases on the tiny map, plus edge cases: start equals goal,
+   goal inside a wall, goal behind the locked door.
+2. Every returned path is checked step by step with assertValidPath().
 3. An "oracle" test: a separate, very simple BFS written with Python's own
-   deque (in this file) computes the true shortest distance for hundreds of
-   random start/goal pairs on the real level.  Our BFS must agree every time.
-
-The tiny map:
-        x: 0 1 2 3 4
-    y=0    # # # # #
-    y=1    # . . . #
-    y=2    # . # . #
-    y=3    # . D . #        D = locked door at (2, 3)
-    y=4    # # # # #
+   deque computes the true shortest distance for hundreds of random pairs
+   on the real level.  Our BFS must agree every time.
 """
 
 import os
-import random
 import sys
 import unittest
-from collections import deque
 
-# Make "algorithms" and "environment" importable from anywhere.
+# Make "algorithms", "environment" and "search_helpers" importable from anywhere.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from environment.vault import Vault, ITEM_KEY, ITEM_GOLD
 from algorithms import bfs
 from algorithms.grid_graph import GridGraph
 from algorithms.search_core import run_search
-
-TINY_LAYOUT = [
-    "#####",
-    "#...#",
-    "#.#.#",
-    "#.D.#",
-    "#####",
-]
+from search_helpers import (
+    PathChecks, tiny_vault, find_item, reference_distance, random_pairs,
+)
 
 
-def tiny_vault():
-    return Vault(TINY_LAYOUT)
-
-
-def find_item(vault, kind):
-    for position, item in vault.items.items():
-        if item == kind:
-            return position
-    return None
-
-
-def reference_distance(graph, start, goal):
-    """
-    The 'oracle': true number of steps from start to goal, or None.
-    Written as simply as possible with Python's deque, completely separately
-    from our own code, so the two can check each other.
-    """
-    if start not in graph or goal not in graph:
-        return None
-    distance = {start: 0}
-    queue = deque([start])
-    while queue:
-        tile = queue.popleft()
-        if tile == goal:
-            return distance[tile]
-        for neighbour in graph.neighbours(tile):
-            if neighbour not in distance:
-                distance[neighbour] = distance[tile] + 1
-                queue.append(neighbour)
-    return None
-
-
-class PathChecks(unittest.TestCase):
-    """Shared checks used by the test classes of every algorithm."""
-
-    def assertValidPath(self, graph, path, start, goal):
-        self.assertIsNotNone(path, "expected a path but got None")
-        self.assertEqual(path[0], start, "path must begin at the start")
-        self.assertEqual(path[-1], goal, "path must end at the goal")
-        self.assertEqual(len(path), len(set(path)), "path visits a tile twice")
-        for here, there in zip(path, path[1:]):
-            self.assertIn(there, graph.neighbours(here),
-                          "illegal move " + str(here) + " -> " + str(there))
-
-
-class TestBFS(PathChecks):
+class TestBFS(PathChecks, unittest.TestCase):
     # ---------------- hand-checked cases on the tiny map ----------------
     def test_finds_the_only_route_around_the_locked_door(self):
         path = bfs.find_path(tiny_vault(), (1, 1), (3, 3))
@@ -131,10 +73,7 @@ class TestBFS(PathChecks):
     def test_agrees_with_the_oracle_on_random_pairs(self):
         vault = Vault()
         graph = GridGraph(vault)
-        tiles = sorted(graph.nodes)
-        rng = random.Random(2026)                     # same pairs on every run
-        for _ in range(300):
-            start, goal = rng.choice(tiles), rng.choice(tiles)
+        for start, goal in random_pairs(graph, 300, seed=2026):
             path = bfs.find_path(vault, start, goal)
             expected = reference_distance(graph, start, goal)
             if expected is None:
